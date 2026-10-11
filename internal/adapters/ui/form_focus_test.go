@@ -15,6 +15,8 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/Adembc/lazyssh/internal/core/domain"
@@ -83,6 +85,46 @@ func TestTransferFormFocusAfterChoosingMode(t *testing.T) {
 					d.press(tcell.KeyBacktab)
 				}
 				d.pick(mode)
+			}
+			if got := d.focused(); got != tt.want {
+				t.Errorf("focus = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInstallKeyFormFocusAfterChoosingKey(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	sshDir := filepath.Join(home, ".ssh")
+	if err := os.MkdirAll(sshDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(sshDir, "id_ed25519.pub"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	open := func(t *tui) { t.showInstallKeyForm(domain.Server{Alias: "web1"}) }
+
+	// Options: 0 = ~/.ssh/id_ed25519.pub, 1 = paste, 2 = generate.
+	tests := []struct {
+		name    string
+		options []int
+		want    string
+	}{
+		{"opened", nil, "Key"},
+		{"existing key", []int{0}, "Install"},
+		{"paste", []int{1}, "Public key"},
+		{"generate", []int{2}, "Name"},
+		{"generate then paste", []int{2, 1}, "Public key"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d := newFormDriver(open)
+			for _, option := range tt.options {
+				for d.focused() != "Key" {
+					d.press(tcell.KeyBacktab)
+				}
+				d.pick(option)
 			}
 			if got := d.focused(); got != tt.want {
 				t.Errorf("focus = %q, want %q", got, tt.want)

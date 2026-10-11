@@ -99,12 +99,26 @@ func (t *tui) showInstallKeyForm(server domain.Server) {
 		SetLabel("Use this key for " + alias).
 		SetChecked(true)
 
+	// ready is set once the dialog is built, so the initial SetCurrentOption
+	// doesn't move focus.
+	ready := false
 	keyDropDown := tview.NewDropDown().SetLabel("Key")
 	keyDropDown.SetOptions(options, func(_ string, index int) {
 		selected = index
 		keyField.SetDisabled(index != pasteIndex)
 		for _, item := range []tview.FormItem{nameField, typeDropDown, commentField, useKeyCheckbox} {
 			item.SetDisabled(index != generateIndex)
+		}
+		if !ready {
+			return
+		}
+		switch index {
+		case pasteIndex:
+			t.focusFormItem(form, "Public key")
+		case generateIndex:
+			t.focusFormItem(form, "Name")
+		default:
+			t.focusFormItem(form, "Install")
 		}
 	})
 	keyDropDown.SetCurrentOption(selected)
@@ -155,6 +169,7 @@ func (t *tui) showInstallKeyForm(server domain.Server) {
 
 	t.app.SetRoot(dialog, true)
 	t.app.SetFocus(form)
+	ready = true
 }
 
 // listPublicKeys returns the .pub files in dir, sorted by name.
