@@ -39,6 +39,9 @@ type serverService struct {
 
 	fwMu     sync.Mutex
 	forwards map[string][]*os.Process
+
+	// runInteractive runs a command attached to the terminal. Replaced in tests.
+	runInteractive func(name string, args ...string) error
 }
 
 // NewServerService creates a new instance of serverService.
@@ -46,7 +49,21 @@ func NewServerService(logger *zap.SugaredLogger, sr ports.ServerRepository) port
 	return &serverService{
 		logger:           logger,
 		serverRepository: sr,
+		runInteractive:   runInteractive,
 	}
+}
+
+// runInteractive runs the named command with the terminal's stdin, stdout and stderr.
+func runInteractive(name string, args ...string) error {
+	if _, err := exec.LookPath(name); err != nil {
+		return fmt.Errorf("%s not found; install OpenSSH client tools", name)
+	}
+	// #nosec G204 -- fixed command name; args are a key path and an alias from the user's ssh config
+	cmd := exec.Command(name, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 // ListServers returns a list of servers sorted with pinned on top.
@@ -376,4 +393,52 @@ func resolveSSHDestination(alias string) (string, int, bool) {
 		port = 22
 	}
 	return host, port, true
+}
+
+// InstallPublicKey appends the public key at pubKeyPath to the server's
+// authorized_keys using ssh-copy-id.
+func (s *serverService) InstallPublicKey(alias, pubKeyPath string) error {
+	s.logger.Infow("ssh-copy-id start", "alias", alias, "key", pubKeyPath)
+	if err := s.runInteractive("ssh-copy-id", sshCopyIDArgs(alias, pubKeyPath)...); err != nil {
+		s.logger.Errorw("ssh-copy-id failed", "alias", alias, "key", pubKeyPath, "error", err)
+		return err
+	}
+	s.logger.Infow("ssh-copy-id end", "alias", alias)
+	return nil
+}
+
+// InstallPublicKeyContent installs a pasted public key line. ssh-copy-id only
+// reads keys from files, so the key is written to a private temp file first.
+func (s *serverService) InstallPublicKeyContent(alias, key string) error {
+	f, err := os.CreateTemp("", "lazyssh-*.pub")
+	if err != nil {
+		return fmt.Errorf("create temp key file: %w", err)
+	}
+	path := f.Name()
+	defer func() {
+		if rmErr := os.Remove(path); rmErr != nil {
+			s.logger.Warnw("failed to remove temp key file", "path", path, "error", rmErr)
+		}
+	}()
+
+	_, writeErr := f.WriteString(strings.TrimSpace(key) + "\n")
+	if closeErr := f.Close(); writeErr == nil {
+		writeErr = closeErr
+	}
+	if writeErr != nil {
+		return fmt.Errorf("write temp key file: %w", writeErr)
+	}
+	return s.InstallPublicKey(alias, path)
+}
+
+// sshCopyIDArgs builds the ssh-copy-id arguments for installing pubKeyPath.
+// Without -f, ssh-copy-id requires the matching private key next to the .pub
+// file, so keys without one (e.g. a colleague's key) are installed with -f,
+// which also skips the check for keys already on the server.
+func sshCopyIDArgs(alias, pubKeyPath string) []string {
+	var args []string
+	if _, err := os.Stat(strings.TrimSuffix(pubKeyPath, ".pub")); err != nil {
+		args = append(args, "-f")
+	}
+	return append(args, "-i", pubKeyPath, alias)
 }

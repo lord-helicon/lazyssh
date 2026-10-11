@@ -45,15 +45,12 @@ With lazyssh, you can quickly navigate, connect to, and manage any server define
 ### Key Management
 - 🔑 SSH key autocomplete with automatic detection of available keys.
 - 📝 Smart key selection with support for multiple keys.
+- 📤 Press `K` to install a public key on the selected server (via `ssh-copy-id`): pick one of your `~/.ssh/*.pub` keys (the server's own key is preselected) or paste someone else's.
 
 
 ### Upcoming
 - 📁 Copy files between local and servers with an easy picker UI.
-- 🔑 SSH Key Deployment Features:
-    - Use default local public key (`~/.ssh/id_ed25519.pub` or `~/.ssh/id_rsa.pub`)
-    - Paste custom public keys manually
-    - Generate new keypairs and deploy them
-    - Automatically append keys to `~/.ssh/authorized_keys` with correct permissions
+- 🔑 Generate new keypairs and deploy them.
 ---
 
 ## 🔐 Security Notice
@@ -183,6 +180,7 @@ make run
 | f     | Start port forwarding         |
 | x     | Stop background forwarding    |
 | c     | Copy SSH command to clipboard |
+| K     | Install SSH key on server     |
 | g     | Ping selected server          |
 | r     | Refresh background data       |
 | a     | Add server                    |
