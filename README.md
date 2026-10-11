@@ -45,7 +45,7 @@ With lazyssh, you can quickly navigate, connect to, and manage any server define
 ### File Transfer
 - 📁 Press `T` to copy files between your machine and the selected server with `scp`, or to open an `sftp` session.
 - ⬆️ Upload a local file or folder, or ⬇️ download a remote one. Local paths autocomplete as you type (`~/` works); an empty remote path means the remote home directory.
-- 📂 Folders are copied recursively. Uploading a folder turns on "Recursive" automatically.
+- 📂 Tick "Recursive" to copy folders. Uploading a folder turns it on automatically.
 - 💻 "Open SFTP session" suspends lazyssh and runs `sftp <alias>`; you return to lazyssh when it exits.
 
 ### Key Management

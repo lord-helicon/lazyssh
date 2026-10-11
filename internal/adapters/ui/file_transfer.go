@@ -67,6 +67,9 @@ func (t *tui) showFileTransferForm(server domain.Server) {
 		SetFieldWidth(60)
 	recursiveBox := tview.NewCheckbox().SetLabel("Recursive (folders)")
 
+	// ready is set once the dialog is built, so the initial SetCurrentOption
+	// doesn't move focus.
+	ready := false
 	modeDropDown := tview.NewDropDown().SetLabel("Mode")
 	modeDropDown.SetOptions(
 		[]string{"Upload (local → server)", "Download (server → local)", "Open SFTP session"},
@@ -76,6 +79,14 @@ func (t *tui) showFileTransferForm(server domain.Server) {
 			localField.SetDisabled(sftp)
 			remoteField.SetDisabled(sftp)
 			recursiveBox.SetDisabled(sftp)
+			if !ready {
+				return
+			}
+			if sftp {
+				t.focusFormItem(form, "Start")
+			} else {
+				t.focusFormItem(form, "Local path")
+			}
 		})
 
 	form.AddFormItem(modeDropDown)
@@ -125,6 +136,7 @@ func (t *tui) showFileTransferForm(server domain.Server) {
 
 	t.app.SetRoot(dialog, true)
 	t.app.SetFocus(form)
+	ready = true
 }
 
 // expandLocalPath expands a leading "~/" to home.
