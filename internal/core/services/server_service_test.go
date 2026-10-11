@@ -150,3 +150,49 @@ func TestTransferCommands(t *testing.T) {
 		t.Errorf("OpenSFTP error = %v, want %v", err, wantErr)
 	}
 }
+
+func TestSSHKeygenArgs(t *testing.T) {
+	tests := []struct {
+		name    string
+		keyType string
+		want    []string
+		wantErr bool
+	}{
+		{"ed25519", "ed25519", []string{"-t", "ed25519", "-f", "/k/id", "-C", "me@host"}, false},
+		{"rsa", "rsa", []string{"-t", "rsa", "-b", "4096", "-f", "/k/id", "-C", "me@host"}, false},
+		{"ecdsa", "ecdsa", []string{"-t", "ecdsa", "-f", "/k/id", "-C", "me@host"}, false},
+		{"unknown", "dsa", nil, true},
+		{"empty", "", nil, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := sshKeygenArgs("/k/id", tt.keyType, "me@host")
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("err = %v, wantErr %v", err, tt.wantErr)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("sshKeygenArgs() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGenerateKeyRunsSSHKeygen(t *testing.T) {
+	var got []string
+	s := &serverService{logger: zap.NewNop().Sugar()}
+	s.runInteractive = func(name string, args ...string) error {
+		got = append([]string{name}, args...)
+		return nil
+	}
+	if err := s.GenerateKey("/k/id", "ed25519", "me@host"); err != nil {
+		t.Fatal(err)
+	}
+	want := []string{"ssh-keygen", "-t", "ed25519", "-f", "/k/id", "-C", "me@host"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("command = %v, want %v", got, want)
+	}
+
+	if err := s.GenerateKey("/k/id", "bogus", "c"); err == nil {
+		t.Error("expected error for unknown key type")
+	}
+}

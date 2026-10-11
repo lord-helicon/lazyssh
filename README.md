@@ -52,11 +52,8 @@ With lazyssh, you can quickly navigate, connect to, and manage any server define
 - 🔑 SSH key autocomplete with automatic detection of available keys.
 - 📝 Smart key selection with support for multiple keys.
 - 📤 Press `K` to install a public key on the selected server (via `ssh-copy-id`): pick one of your `~/.ssh/*.pub` keys (the server's own key is preselected) or paste someone else's.
+- 🆕 The same `K` dialog can also generate a new keypair with `ssh-keygen` (ed25519, RSA 4096 or ECDSA), install it on the server, and set it as the server's `IdentityFile`.
 
-
-### Upcoming
-- 📁 Copy files between local and servers with an easy picker UI.
-- 🔑 Generate new keypairs and deploy them.
 ---
 
 ## 🔐 Security Notice
@@ -67,6 +64,8 @@ It is simply a UI/TUI wrapper around your existing `~/.ssh/config` file.
 - All SSH connections are executed through your system’s native ssh binary (OpenSSH).
 
 - Private keys, passwords, and credentials are never stored, transmitted, or modified by lazyssh.
+
+- New keys are created by your system's `ssh-keygen`; lazyssh never reads or writes private key contents.
 
 - Your existing IdentityFile paths and ssh-agent integrations work exactly as before.
 

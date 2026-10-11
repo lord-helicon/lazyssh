@@ -46,14 +46,17 @@ func (t *tui) handleInstallKey() {
 func (t *tui) showInstallKeyForm(server domain.Server) {
 	home, _ := os.UserHomeDir()
 	keys := listPublicKeys(filepath.Join(home, ".ssh"))
-	options := make([]string, 0, len(keys)+1)
+	options := make([]string, 0, len(keys)+2)
 	for _, key := range keys {
 		options = append(options, displayPath(key, home))
 	}
-	options = append(options, pasteKeyOption)
+	options = append(options, pasteKeyOption, generateKeyOption)
+	pasteIndex, generateIndex := len(keys), len(keys)+1
 
 	selected := preselectKey(keys, server.IdentityFiles, home)
 	pasted := ""
+	alias := server.Alias
+	sshDir := filepath.Join(home, ".ssh")
 
 	form := tview.NewForm()
 
@@ -69,33 +72,76 @@ func (t *tui) showInstallKeyForm(server domain.Server) {
 		SetLabel("Public key").
 		SetFieldWidth(60).
 		SetChangedFunc(func(text string) { pasted = text })
+	typeIndex := 0
+	nameField := tview.NewInputField().
+		SetLabel("Name").
+		SetFieldWidth(40).
+		SetText(defaultKeyName(keyTypes[0].keyType, alias))
+	typeLabels := make([]string, len(keyTypes))
+	for i, kt := range keyTypes {
+		typeLabels[i] = kt.label
+	}
+	typeDropDown := tview.NewDropDown().SetLabel("Type")
+	typeDropDown.SetOptions(typeLabels, func(_ string, index int) {
+		if index < 0 || index == typeIndex {
+			return
+		}
+		nameField.SetText(nameAfterTypeChange(nameField.GetText(), alias,
+			keyTypes[typeIndex].keyType, keyTypes[index].keyType))
+		typeIndex = index
+	})
+	typeDropDown.SetCurrentOption(0)
+	commentField := tview.NewInputField().
+		SetLabel("Comment").
+		SetFieldWidth(40).
+		SetText(defaultKeyComment())
+	useKeyCheckbox := tview.NewCheckbox().
+		SetLabel("Use this key for " + alias).
+		SetChecked(true)
+
 	keyDropDown := tview.NewDropDown().SetLabel("Key")
 	keyDropDown.SetOptions(options, func(_ string, index int) {
 		selected = index
-		keyField.SetDisabled(index != len(keys))
+		keyField.SetDisabled(index != pasteIndex)
+		for _, item := range []tview.FormItem{nameField, typeDropDown, commentField, useKeyCheckbox} {
+			item.SetDisabled(index != generateIndex)
+		}
 	})
 	keyDropDown.SetCurrentOption(selected)
 
 	form.AddFormItem(keyDropDown)
 	form.AddFormItem(keyField)
+	form.AddFormItem(nameField)
+	form.AddFormItem(typeDropDown)
+	form.AddFormItem(commentField)
+	form.AddFormItem(useKeyCheckbox)
 
-	alias := server.Alias
 	form.AddButton("Install", func() {
-		if selected < len(keys) {
+		switch {
+		case selected < pasteIndex:
 			key := keys[selected]
 			_ = t.runSuspended("Key installed on "+alias, "Key install on "+alias+" failed", func() error {
 				return t.serverService.InstallPublicKey(alias, key)
 			})
-			return
+		case selected == pasteIndex:
+			if err := validatePublicKey(pasted); err != nil {
+				message.SetText("[#FF6B6B]Invalid public key: " + tview.Escape(err.Error()) + "[-]")
+				return
+			}
+			key := pasted
+			_ = t.runSuspended("Key installed on "+alias, "Key install on "+alias+" failed", func() error {
+				return t.serverService.InstallPublicKeyContent(alias, key)
+			})
+		default:
+			name := strings.TrimSpace(nameField.GetText())
+			if err := validateKeyName(sshDir, name); err != nil {
+				message.SetText("[#FF6B6B]" + tview.Escape(err.Error()) + "[-]")
+				return
+			}
+			_ = t.generateAndInstallKey(server, sshDir, name, keyTypes[typeIndex].keyType,
+				commentField.GetText(), useKeyCheckbox.IsChecked())
+			t.refreshServerList()
 		}
-		if err := validatePublicKey(pasted); err != nil {
-			message.SetText("[#FF6B6B]Invalid public key: " + tview.Escape(err.Error()) + "[-]")
-			return
-		}
-		key := pasted
-		_ = t.runSuspended("Key installed on "+alias, "Key install on "+alias+" failed", func() error {
-			return t.serverService.InstallPublicKeyContent(alias, key)
-		})
 	})
 	form.AddButton("Cancel", func() { t.returnToMain() })
 	form.SetCancelFunc(func() { t.returnToMain() })

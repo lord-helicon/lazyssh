@@ -37,4 +37,5 @@ type ServerService interface {
 	UploadFiles(alias, localPath, remotePath string, recursive bool) error
 	DownloadFiles(alias, remotePath, localPath string, recursive bool) error
 	OpenSFTP(alias string) error
+	GenerateKey(path, keyType, comment string) error
 }

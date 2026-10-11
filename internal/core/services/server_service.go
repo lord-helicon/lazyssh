@@ -496,3 +496,33 @@ func safeLocalPath(p string) string {
 	}
 	return p
 }
+
+// GenerateKey creates a new key pair at path with ssh-keygen. ssh-keygen asks
+// for the passphrase itself on the terminal; lazyssh never sees the key.
+func (s *serverService) GenerateKey(path, keyType, comment string) error {
+	args, err := sshKeygenArgs(path, keyType, comment)
+	if err != nil {
+		return err
+	}
+	s.logger.Infow("ssh-keygen start", "path", path, "type", keyType)
+	if err := s.runInteractive("ssh-keygen", args...); err != nil {
+		s.logger.Errorw("ssh-keygen failed", "path", path, "type", keyType, "error", err)
+		return err
+	}
+	s.logger.Infow("ssh-keygen end", "path", path)
+	return nil
+}
+
+// sshKeygenArgs builds the ssh-keygen arguments for the given key type.
+func sshKeygenArgs(path, keyType, comment string) ([]string, error) {
+	var args []string
+	switch keyType {
+	case "ed25519", "ecdsa":
+		args = []string{"-t", keyType}
+	case "rsa":
+		args = []string{"-t", "rsa", "-b", "4096"}
+	default:
+		return nil, fmt.Errorf("unsupported key type %q", keyType)
+	}
+	return append(args, "-f", path, "-C", comment), nil
+}
