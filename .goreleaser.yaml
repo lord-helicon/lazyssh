@@ -40,7 +40,7 @@ checksum:
   name_template: "checksums.txt"
 
 snapshot:
-  name_template: "{{ .Tag }}-next"
+  version_template: "{{ .Tag }}-next"
 
 changelog:
   sort: asc
@@ -50,9 +50,11 @@ changelog:
       - "^test:"
 brews:
   - repository:
-      owner: adembc
+      owner: lord-helicon
       name: homebrew-tap
-    homepage: "https://github.com/adembc/lazyssh"
+      # The workflow token can't push to another repo, so the tap needs its own token.
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: "https://github.com/lord-helicon/lazyssh"
     description: "A simple terminal UI for managing SSH connections.  "
 
 release:

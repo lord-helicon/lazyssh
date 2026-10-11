@@ -123,18 +123,18 @@ SSH into the selected server
 ### Option 1: Homebrew (macOS)
 
 ```bash
-brew install Adembc/homebrew-tap/lazyssh
+brew install lord-helicon/tap/lazyssh
 ```
 
 ### Option 2: Download Binary from Releases
 
-Download from [GitHub Releases](https://github.com/Adembc/lazyssh/releases). You can use the snippet below to automatically fetch the latest version for your OS/ARCH (Darwin/Linux and amd64/arm64 supported):
+Download from [GitHub Releases](https://github.com/lord-helicon/lazyssh/releases). You can use the snippet below to automatically fetch the latest version for your OS/ARCH (Darwin/Linux and amd64/arm64 supported):
 
 ```bash
 # Detect latest version
-LATEST_TAG=$(curl -fsSL https://api.github.com/repos/Adembc/lazyssh/releases/latest | jq -r .tag_name)
+LATEST_TAG=$(curl -fsSL https://api.github.com/repos/lord-helicon/lazyssh/releases/latest | jq -r .tag_name)
 # Download the correct binary for your system
-curl -LJO "https://github.com/Adembc/lazyssh/releases/download/${LATEST_TAG}/lazyssh_$(uname)_$(uname -m).tar.gz"
+curl -LJO "https://github.com/lord-helicon/lazyssh/releases/download/${LATEST_TAG}/lazyssh_$(uname)_$(uname -m).tar.gz"
 # Extract the binary
 tar -xzf lazyssh_$(uname)_$(uname -m).tar.gz
 # Move to /usr/local/bin or another directory in your PATH
@@ -147,7 +147,7 @@ lazyssh
 
 ```bash
 # Clone the repository
-git clone https://github.com/Adembc/lazyssh.git
+git clone https://github.com/lord-helicon/lazyssh.git
 cd lazyssh
 
 # Build for macOS

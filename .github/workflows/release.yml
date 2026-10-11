@@ -3,20 +3,29 @@ on:
   push:
     tags:
       - 'v*'
+
+permissions:
+  contents: write
+
 jobs:
   goreleaser:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Setup Go
-        uses: actions/setup-go@v4
+        uses: actions/checkout@v4
         with:
-          go-version: 1.22.x
+          # GoReleaser needs the full history and tags to build the changelog.
+          fetch-depth: 0
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v5
         with:
           version:  2.9.0
           args: release --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
