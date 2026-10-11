@@ -82,3 +82,41 @@ func TestAddServerKeepsSymlinkedConfig(t *testing.T) {
 		t.Errorf("expected only the config in the symlink target dir, got %d entries", len(entries))
 	}
 }
+
+func TestAddServerInsertsBeforeMatchingWildcard(t *testing.T) {
+	tests := []struct {
+		name   string
+		config string
+		alias  string
+		want   string
+	}{
+		{
+			name:   "before trailing Host *",
+			config: "Include work.d/*\nUser globaluser\n\nHost a\n    HostName 10.0.0.1\n\nHost *\n    User wildcard\n",
+			alias:  "b",
+			want: "Include work.d/*\nUser globaluser\n\nHost a\n    HostName 10.0.0.1\n\n" +
+				"Host b    #Added by lazyssh\n    HostName 10.0.0.2\n\nHost *\n    User wildcard\n",
+		},
+		{
+			name:   "before matching pattern",
+			config: "Host lab-*\n    User admin\n\nHost *\n    ForwardAgent no\n",
+			alias:  "lab-3",
+			want: "Host lab-3    #Added by lazyssh\n    HostName 10.0.0.2\n\n" +
+				"Host lab-*\n    User admin\n\nHost *\n    ForwardAgent no\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config")
+			writeFile(t, path, tt.config)
+
+			repo := newTestRepo(t, path)
+			if err := repo.AddServer(domain.Server{Alias: tt.alias, Host: "10.0.0.2"}); err != nil {
+				t.Fatal(err)
+			}
+			if got := readFile(t, path); got != tt.want {
+				t.Errorf("unexpected config:\n--- got ---\n%s\n--- want ---\n%s", got, tt.want)
+			}
+		})
+	}
+}
