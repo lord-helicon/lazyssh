@@ -6,7 +6,9 @@
 
 Lazyssh is a terminal-based, interactive SSH manager inspired by tools like lazydocker and k9s — but built for managing your fleet of servers directly from your terminal.
 <br/>
-With lazyssh, you can quickly navigate, connect, manage, and transfer files between your local machine and any server defined in your `~/.ssh/config`. No more remembering IP addresses or running long scp commands — just a clean, keyboard-driven UI.
+With lazyssh, you can quickly navigate, connect to, and manage any server defined in your `~/.ssh/config`. No more remembering IP addresses or long ssh commands — just a clean, keyboard-driven UI.
+
+> **About this fork:** this is a maintained fork of [Adembc/lazyssh](https://github.com/Adembc/lazyssh), which hasn't merged changes since v0.3.0. It adds fixes for how `~/.ssh/config` is written (symlinked configs, `Host *` ordering, negated patterns), bug fixes from open upstream pull requests, and its own releases and Homebrew tap.
 
 ---
 
@@ -26,8 +28,14 @@ With lazyssh, you can quickly navigate, connect, manage, and transfer files betw
 - 🏷 Tag servers (e.g., prod, dev, test) for quick filtering.
 - ↕️ Sort by alias or last SSH (toggle + reverse).
 
+### On-the-fly Port Forwarding
+- 🔀 Press `f` to start a local (`-L`), remote (`-R`) or dynamic/SOCKS (`-D`) forward for the selected server, without editing its config.
+- 🧵 Run it as a background tunnel ("Only forward") or together with an interactive SSH session ("Forward + SSH").
+- Ⓕ Servers with an active background tunnel are marked in the list. Press `x` to stop them.
+- ⚠️ Background tunnels are detached and keep running after you quit lazyssh. Stop them with `x` before quitting if you don't want that.
+
 ### Advanced SSH Configuration
-- 🔗 Port forwarding (LocalForward, RemoteForward, DynamicForward).
+- 🔗 Persistent port forwarding in the config (LocalForward, RemoteForward, DynamicForward).
 - 🚀 Connection multiplexing for faster subsequent connections.
 - 🔐 Advanced authentication options (public key, password, agent forwarding).
 - 🔒 Security settings (ciphers, MACs, key exchange algorithms).
@@ -68,6 +76,9 @@ It is simply a UI/TUI wrapper around your existing `~/.ssh/config` file.
 
 - Non‑destructive edits: lazyssh only writes the minimal required changes to your ~/.ssh/config. It uses a parser that preserves existing comments, spacing, order, and any settings it didn’t touch. Your handcrafted comments and formatting remain intact.
 - Atomic writes: updates are written to a temporary file and then atomically renamed over the original, minimizing the risk of partial writes.
+- Symlinked configs: if `~/.ssh/config` is a symlink (for example into a dotfiles repo), lazyssh updates the file it points to and leaves the link in place.
+- Correct host order: new hosts are added before any matching wildcard block such as a trailing `Host *`. OpenSSH uses the first value it finds for each option, so this keeps the wildcard's settings from overriding the new host's.
+- Negated patterns: lines like `Host * !bastion` are written back exactly as they were, and are not listed as servers.
 - Backups:
   - One‑time original backup: before lazyssh makes its first change, it creates a single snapshot named config.original.backup beside your SSH config. If this file is present, it will never be recreated or overwritten.
   - Rolling backups: on every subsequent save, lazyssh also creates a timestamped backup named like: ~/.ssh/config-<timestamp>-lazyssh.backup. The app keeps at most 10 of these backups, automatically removing the oldest ones.
@@ -169,6 +180,8 @@ make run
 | /     | Toggle search bar             |
 | ↑↓/jk | Navigate servers              |
 | Enter | SSH into selected server      |
+| f     | Start port forwarding         |
+| x     | Stop background forwarding    |
 | c     | Copy SSH command to clipboard |
 | g     | Ping selected server          |
 | r     | Refresh background data       |
