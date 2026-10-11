@@ -17,6 +17,7 @@ package ui
 import (
 	"bufio"
 	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -193,8 +194,18 @@ func validatePublicKey(key string) error {
 	if len(fields) < 2 {
 		return errors.New("key data is missing")
 	}
-	if _, err := base64.RawStdEncoding.DecodeString(strings.TrimRight(fields[1], "=")); err != nil {
+	blob, err := base64.StdEncoding.DecodeString(fields[1])
+	if err != nil {
 		return errors.New("key data is not valid base64")
+	}
+	// The key data starts with the key type again, as an SSH string
+	// (4-byte big-endian length, then the bytes).
+	if len(blob) < 4 {
+		return errors.New("key data is too short")
+	}
+	n := uint64(binary.BigEndian.Uint32(blob))
+	if n > uint64(len(blob)-4) || string(blob[4:4+n]) != keyType {
+		return errors.New("key data does not match the key type")
 	}
 	return nil
 }

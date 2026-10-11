@@ -15,6 +15,8 @@
 package ui
 
 import (
+	"encoding/base64"
+	"encoding/binary"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -64,22 +66,44 @@ func TestPreselectKey(t *testing.T) {
 	}
 }
 
+// Real public keys generated with ssh-keygen for these tests.
+const (
+	testEd25519Key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKPfhNgTg54wBWl8/nbpoG1L2H7aQ3K9d+17ZFHGIT/a"
+	testECDSAKey   = "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBHC/9hZbAs5tGa2w0eucEF/AG9AxoDQWBmCT93Y0JQpAuxfQbEKs1V1RH6ygikFJoWuhN6VbHbb2CieR5YQrrmA="
+	testRSAKey     = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAgQC3tHSGwst8mCxgRfvUJ4Un4PoPaEhry7LnJEv5UBh1rXeGy4DZRGW0RVjfi1n4/KZgwKfG0e1WPu07MtazU7ripfK5SZDqL3MoUbxwcPgrb5pehJb6DzB2OuzpwhGaqbyNbqTIizGFdsL95dsSc9FRwMDIxbu/bdnBuKDy8iHcNw=="
+)
+
+// keyBlob encodes SSH wire-format strings as base64 key data.
+func keyBlob(parts ...string) string {
+	var b []byte
+	for _, p := range parts {
+		b = binary.BigEndian.AppendUint32(b, uint32(len(p)))
+		b = append(b, p...)
+	}
+	return base64.StdEncoding.EncodeToString(b)
+}
+
 func TestValidatePublicKey(t *testing.T) {
 	tests := []struct {
 		name    string
 		key     string
 		wantErr bool
 	}{
-		{"ed25519 with comment", "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIC9 me@laptop", false},
-		{"rsa without comment", "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC7", false},
-		{"ecdsa", "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTY=", false},
-		{"security key", "sk-ssh-ed25519@openssh.com AAAAGnNrLXNzaC1lZDI1NTE5QG9wZW5zc2guY29t", false},
+		{"ed25519 with comment", testEd25519Key + " me@laptop", false},
+		{"ecdsa", testECDSAKey, false},
+		{"rsa with spaces around", "  " + testRSAKey + "  ", false},
+		{"security key", "sk-ssh-ed25519@openssh.com " + keyBlob("sk-ssh-ed25519@openssh.com", "key", "ssh:"), false},
 		{"empty", "  ", true},
 		{"private key pasted", "-----BEGIN OPENSSH PRIVATE KEY-----", true},
-		{"unknown type", "foo AAAA", true},
+		{"unknown type", "foo " + keyBlob("foo", "key"), true},
 		{"missing key data", "ssh-ed25519", true},
 		{"key data not base64", "ssh-ed25519 not-base64!", true},
-		{"multiple lines", "ssh-ed25519 AAAA\nssh-rsa AAAA", true},
+		{"only padding", "ssh-ed25519 ====", true},
+		{"too short", "ssh-ed25519 AAA=", true},
+		{"random base64", "ssh-ed25519 aGVsbG8gd29ybGQ=", true},
+		{"type mismatch", "ssh-rsa " + keyBlob("ssh-ed25519", "key"), true},
+		{"length beyond data", "ssh-ed25519 " + base64.StdEncoding.EncodeToString([]byte{0xff, 0xff, 0xff, 0xff, 's'}), true},
+		{"multiple lines", testEd25519Key + "\n" + testRSAKey, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
