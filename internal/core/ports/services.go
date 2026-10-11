@@ -32,4 +32,6 @@ type ServerService interface {
 	StopForwarding(alias string) error
 	IsForwarding(alias string) bool
 	Ping(server domain.Server) (bool, time.Duration, error)
+	InstallPublicKey(alias, pubKeyPath string) error
+	InstallPublicKeyContent(alias, key string) error
 }
