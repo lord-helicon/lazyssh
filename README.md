@@ -133,10 +133,12 @@ Download from [GitHub Releases](https://github.com/lord-helicon/lazyssh/releases
 ```bash
 # Detect latest version
 LATEST_TAG=$(curl -fsSL https://api.github.com/repos/lord-helicon/lazyssh/releases/latest | jq -r .tag_name)
+# Detect your architecture (Linux reports arm64 as aarch64)
+ARCH=$(uname -m); [ "$ARCH" = "aarch64" ] && ARCH=arm64
 # Download the correct binary for your system
-curl -LJO "https://github.com/lord-helicon/lazyssh/releases/download/${LATEST_TAG}/lazyssh_$(uname)_$(uname -m).tar.gz"
+curl -LJO "https://github.com/lord-helicon/lazyssh/releases/download/${LATEST_TAG}/lazyssh_$(uname)_${ARCH}.tar.gz"
 # Extract the binary
-tar -xzf lazyssh_$(uname)_$(uname -m).tar.gz
+tar -xzf lazyssh_$(uname)_${ARCH}.tar.gz
 # Move to /usr/local/bin or another directory in your PATH
 sudo mv lazyssh /usr/local/bin/
 # enjoy!
