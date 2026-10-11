@@ -15,6 +15,7 @@
 package services
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -83,5 +84,69 @@ func TestInstallPublicKeyContentUsesPrivateTempFile(t *testing.T) {
 	}
 	if _, err := os.Stat(keyPath); !os.IsNotExist(err) {
 		t.Errorf("temp key file %s was not removed", keyPath)
+	}
+}
+
+func TestSCPArgs(t *testing.T) {
+	tests := []struct {
+		name string
+		got  []string
+		want []string
+	}{
+		{"upload", scpUploadArgs("web1", "/tmp/a.txt", "/srv/a.txt", false), []string{"/tmp/a.txt", "web1:/srv/a.txt"}},
+		{"upload recursive", scpUploadArgs("web1", "/tmp/dir", "/srv", true), []string{"-r", "/tmp/dir", "web1:/srv"}},
+		{"upload empty remote is home", scpUploadArgs("web1", "/tmp/a.txt", "", false), []string{"/tmp/a.txt", "web1:"}},
+		{"upload local starting with dash", scpUploadArgs("web1", "-weird", "", false), []string{"./-weird", "web1:"}},
+		{"download", scpDownloadArgs("web1", "/srv/a.txt", "/tmp/a.txt", false), []string{"web1:/srv/a.txt", "/tmp/a.txt"}},
+		{"download recursive", scpDownloadArgs("web1", "logs", "/tmp", true), []string{"-r", "web1:logs", "/tmp"}},
+		{"download local starting with dash", scpDownloadArgs("web1", "a", "-out", false), []string{"web1:a", "./-out"}},
+		{"sftp", sftpArgs("web1"), []string{"web1"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !reflect.DeepEqual(tt.got, tt.want) {
+				t.Errorf("got %v, want %v", tt.got, tt.want)
+			}
+		})
+	}
+}
+
+func TestTransferCommands(t *testing.T) {
+	var got []string
+	s := &serverService{logger: zap.NewNop().Sugar()}
+	s.runInteractive = func(name string, args ...string) error {
+		got = append([]string{name}, args...)
+		return nil
+	}
+
+	if err := s.UploadFiles("web1", "/tmp/d", "", true); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"scp", "-r", "/tmp/d", "web1:"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("upload ran %v, want %v", got, want)
+	}
+	if err := s.DownloadFiles("web1", "/srv/a", "/tmp/a", false); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"scp", "web1:/srv/a", "/tmp/a"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("download ran %v, want %v", got, want)
+	}
+	if err := s.OpenSFTP("web1"); err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"sftp", "web1"}; !reflect.DeepEqual(got, want) {
+		t.Errorf("sftp ran %v, want %v", got, want)
+	}
+
+	wantErr := errors.New("boom")
+	s.runInteractive = func(string, ...string) error { return wantErr }
+	if err := s.UploadFiles("web1", "/tmp/a", "", false); !errors.Is(err, wantErr) {
+		t.Errorf("UploadFiles error = %v, want %v", err, wantErr)
+	}
+	if err := s.DownloadFiles("web1", "a", "/tmp/a", false); !errors.Is(err, wantErr) {
+		t.Errorf("DownloadFiles error = %v, want %v", err, wantErr)
+	}
+	if err := s.OpenSFTP("web1"); !errors.Is(err, wantErr) {
+		t.Errorf("OpenSFTP error = %v, want %v", err, wantErr)
 	}
 }

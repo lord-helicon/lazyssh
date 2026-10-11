@@ -42,6 +42,12 @@ With lazyssh, you can quickly navigate, connect to, and manage any server define
 - 🌐 Proxy settings (ProxyJump, ProxyCommand).
 - ⚙️ Extensive SSH config options organized in tabbed interface.
 
+### File Transfer
+- 📁 Press `T` to copy files between your machine and the selected server with `scp`, or to open an `sftp` session.
+- ⬆️ Upload a local file or folder, or ⬇️ download a remote one. Local paths autocomplete as you type (`~/` works); an empty remote path means the remote home directory.
+- 📂 Folders are copied recursively. Uploading a folder turns on "Recursive" automatically.
+- 💻 "Open SFTP session" suspends lazyssh and runs `sftp <alias>`; you return to lazyssh when it exits.
+
 ### Key Management
 - 🔑 SSH key autocomplete with automatic detection of available keys.
 - 📝 Smart key selection with support for multiple keys.
@@ -181,6 +187,7 @@ make run
 | x     | Stop background forwarding    |
 | c     | Copy SSH command to clipboard |
 | K     | Install SSH key on server     |
+| T     | Transfer files / open SFTP    |
 | g     | Ping selected server          |
 | r     | Refresh background data       |
 | a     | Add server                    |
