@@ -17,7 +17,6 @@ package ui
 import (
 	"bufio"
 	"encoding/base64"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"os"
@@ -203,8 +202,9 @@ func validatePublicKey(key string) error {
 	if len(blob) < 4 {
 		return errors.New("key data is too short")
 	}
-	n := uint64(binary.BigEndian.Uint32(blob))
-	if n > uint64(len(blob)-4) || string(blob[4:4+n]) != keyType {
+	// Assembled from bytes so an oversized length can't wrap on 32-bit platforms.
+	n := int(blob[0])<<24 | int(blob[1])<<16 | int(blob[2])<<8 | int(blob[3])
+	if n < 0 || n > len(blob)-4 || string(blob[4:4+n]) != keyType {
 		return errors.New("key data does not match the key type")
 	}
 	return nil
