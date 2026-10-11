@@ -210,8 +210,8 @@ Tip: The hint bar at the top of the list shows the most useful shortcuts.
 
 Contributions are welcome!
 
-- If you spot a bug or have a feature request, please [open an issue](https://github.com/adembc/lazyssh/issues).
-- If you'd like to contribute, fork the repo and submit a pull request ❤️.
+- If you spot a bug or have a feature request, please [open an issue](https://github.com/lord-helicon/lazyssh/issues).
+- If you'd like to contribute, fork [lord-helicon/lazyssh](https://github.com/lord-helicon/lazyssh) and submit a pull request ❤️.
 
 We love seeing the community make Lazyssh better 🚀
 
@@ -248,9 +248,9 @@ Tip: If your PR touches multiple areas, pick the most relevant scope or omit the
 
 ## ⭐ Support
 
-If you find Lazyssh useful, please consider giving the repo a **star** ⭐️ and join [stargazers](https://github.com/adembc/lazyssh/stargazers).
+If you find Lazyssh useful, please consider giving the repo a **star** ⭐️ and join [stargazers](https://github.com/lord-helicon/lazyssh/stargazers).
 
-☕ You can also support me by [buying me a coffee](https://www.buymeacoffee.com/adembc) ❤️
+lazyssh was created by [@Adembc](https://github.com/Adembc). ☕ You can support the original author by [buying them a coffee](https://www.buymeacoffee.com/adembc) ❤️
 <br/>
 <a href="https://buymeacoffee.com/adembc" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" width="200"></a>
 
