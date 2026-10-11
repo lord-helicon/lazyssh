@@ -146,7 +146,7 @@ func (t *tui) handleTagsEdit() {
 }
 
 func (t *tui) handleNavigateDown() {
-	if t.app.GetFocus() == t.serverList {
+	if t.isServerListFocused() {
 		currentIdx := t.serverList.GetCurrentItem()
 		itemCount := t.serverList.GetItemCount()
 		if currentIdx < itemCount-1 {
@@ -158,7 +158,7 @@ func (t *tui) handleNavigateDown() {
 }
 
 func (t *tui) handleNavigateUp() {
-	if t.app.GetFocus() == t.serverList {
+	if t.isServerListFocused() {
 		currentIdx := t.serverList.GetCurrentItem()
 		if currentIdx > 0 {
 			t.serverList.SetCurrentItem(currentIdx - 1)
@@ -174,7 +174,18 @@ func (t *tui) handleSearchInput(query string) {
 	t.serverList.UpdateServers(filtered)
 	if len(filtered) == 0 {
 		t.details.ShowEmpty()
+		return
 	}
+	// A new query should select the best match, not keep the previous selection.
+	t.serverList.SetCurrentItem(0)
+}
+
+func (t *tui) isServerListFocused() bool {
+	if t == nil || t.app == nil || t.serverList == nil {
+		return false
+	}
+	focus := t.app.GetFocus()
+	return focus == t.serverList || focus == t.serverList.List
 }
 
 func (t *tui) handleSearchFocus() {
@@ -408,7 +419,14 @@ func (t *tui) showEditTagsForm(server domain.Server) {
 
 		newServer := server
 		newServer.Tags = tags
-		_ = t.serverService.UpdateServer(server, newServer)
+		if err := t.serverService.UpdateServer(server, newServer); err != nil {
+			modal := tview.NewModal().
+				SetText(fmt.Sprintf("Save failed: %v", err)).
+				AddButtons([]string{"Close"}).
+				SetDoneFunc(func(buttonIndex int, buttonLabel string) { t.handleModalClose() })
+			t.app.SetRoot(modal, true)
+			return
+		}
 		// Refresh UI and go back
 		t.refreshServerList()
 		t.returnToMain()

@@ -43,13 +43,34 @@ func (r *Repository) loadConfig() (*ssh_config.Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode config: %w", err)
 	}
+	restoreNegatedPatterns(cfg)
 
 	return cfg, nil
 }
 
+// restoreNegatedPatterns puts the leading "!" back on negated Host patterns.
+// The parser strips it from Pattern.Str and keeps the negation internally, so
+// without this every save would turn "Host * !foo" into "Host * foo".
+func restoreNegatedPatterns(cfg *ssh_config.Config) {
+	for _, host := range cfg.Hosts {
+		for _, pattern := range host.Patterns {
+			// A pattern always matches its own text unless it is negated.
+			single := &ssh_config.Host{Patterns: []*ssh_config.Pattern{pattern}}
+			if !single.Matches(pattern.Str) {
+				pattern.Str = "!" + pattern.Str
+			}
+		}
+	}
+}
+
 // saveConfig writes the SSH config back to the file with atomic operations and backup management.
 func (r *Repository) saveConfig(cfg *ssh_config.Config) error {
-	configDir := filepath.Dir(r.configPath)
+	// Write through a symlinked config (e.g. managed by a dotfiles repo) instead of replacing the link.
+	targetPath, err := r.resolveConfigPath()
+	if err != nil {
+		return fmt.Errorf("failed to resolve config path: %w", err)
+	}
+	configDir := filepath.Dir(targetPath)
 
 	tempFile, err := r.createTempFile(configDir)
 	if err != nil {
@@ -75,12 +96,25 @@ func (r *Repository) saveConfig(cfg *ssh_config.Config) error {
 		return fmt.Errorf("failed to create backup: %w", err)
 	}
 
-	if err := r.fileSystem.Rename(tempFile, r.configPath); err != nil {
+	if err := r.fileSystem.Rename(tempFile, targetPath); err != nil {
 		return fmt.Errorf("failed to atomically replace config file: %w", err)
 	}
 
 	r.logger.Infof("SSH config successfully updated: %s", r.configPath)
 	return nil
+}
+
+// resolveConfigPath returns the file the config path points to, following symlinks.
+// A config that does not exist yet resolves to the configured path.
+func (r *Repository) resolveConfigPath() (string, error) {
+	resolved, err := r.fileSystem.EvalSymlinks(r.configPath)
+	if err != nil {
+		if r.fileSystem.IsNotExist(err) {
+			return r.configPath, nil
+		}
+		return "", err
+	}
+	return resolved, nil
 }
 
 // writeConfigToFile writes the SSH config content to the specified file

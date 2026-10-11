@@ -1,0 +1,152 @@
+// Copyright 2025.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package ssh_config_file
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/Adembc/lazyssh/internal/core/domain"
+	"go.uber.org/zap"
+)
+
+func newTestRepo(t *testing.T, configPath string) *Repository {
+	t.Helper()
+	meta := filepath.Join(t.TempDir(), "metadata.json")
+	return NewRepository(zap.NewNop().Sugar(), configPath, meta).(*Repository)
+}
+
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func readFile(t *testing.T, path string) string {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(data)
+}
+
+func TestAddServerKeepsSymlinkedConfig(t *testing.T) {
+	sshDir := t.TempDir()
+	dotfiles := t.TempDir()
+	target := filepath.Join(dotfiles, "ssh_config")
+	link := filepath.Join(sshDir, "config")
+	writeFile(t, target, "Host a\n    HostName 10.0.0.1\n")
+	if err := os.Symlink(target, link); err != nil {
+		t.Fatal(err)
+	}
+
+	repo := newTestRepo(t, link)
+	if err := repo.AddServer(domain.Server{Alias: "b", Host: "10.0.0.2"}); err != nil {
+		t.Fatal(err)
+	}
+
+	fi, err := os.Lstat(link)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fi.Mode()&os.ModeSymlink == 0 {
+		t.Fatal("config symlink was replaced by a regular file")
+	}
+	if got := readFile(t, target); !strings.Contains(got, "Host b") {
+		t.Errorf("symlink target was not updated:\n%s", got)
+	}
+	if _, err := os.Stat(filepath.Join(sshDir, OriginalBackupName)); err != nil {
+		t.Errorf("expected original backup next to the symlink: %v", err)
+	}
+	entries, err := os.ReadDir(dotfiles)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("expected only the config in the symlink target dir, got %d entries", len(entries))
+	}
+}
+
+func TestSaveKeepsNegatedPatterns(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config")
+	writeFile(t, path, "Host !bastion\n    User nobody\n\nHost * !lab-? !b\n    User other\n\n")
+
+	repo := newTestRepo(t, path)
+	servers, err := repo.ListServers("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(servers) != 0 {
+		t.Errorf("negated patterns must not be listed as servers, got %+v", servers)
+	}
+	if err := repo.AddServer(domain.Server{Alias: "b", Host: "10.0.0.2"}); err != nil {
+		t.Fatal(err)
+	}
+
+	want := "Host !bastion\n    User nobody\n\nHost * !lab-? !b\n    User other\n\n" +
+		"Host b    #Added by lazyssh\n    HostName 10.0.0.2\n"
+	if got := readFile(t, path); got != want {
+		t.Errorf("unexpected config:\n--- got ---\n%s\n--- want ---\n%s", got, want)
+	}
+}
+
+func TestAddServerInsertsBeforeMatchingWildcard(t *testing.T) {
+	tests := []struct {
+		name   string
+		config string
+		alias  string
+		want   string
+	}{
+		{
+			name:   "before trailing Host *",
+			config: "Include work.d/*\nUser globaluser\n\nHost a\n    HostName 10.0.0.1\n\nHost *\n    User wildcard\n",
+			alias:  "b",
+			want: "Include work.d/*\nUser globaluser\n\nHost a\n    HostName 10.0.0.1\n\n" +
+				"Host b    #Added by lazyssh\n    HostName 10.0.0.2\n\nHost *\n    User wildcard\n",
+		},
+		{
+			name:   "before matching pattern",
+			config: "Host lab-*\n    User admin\n\nHost *\n    ForwardAgent no\n",
+			alias:  "lab-3",
+			want: "Host lab-3    #Added by lazyssh\n    HostName 10.0.0.2\n\n" +
+				"Host lab-*\n    User admin\n\nHost *\n    ForwardAgent no\n",
+		},
+		{
+			name:   "skips non-matching and negated patterns",
+			config: "Host web-*\n    User www\n\nHost * !lab-*\n    User other\n",
+			alias:  "lab-3",
+			want: "Host web-*\n    User www\n\nHost * !lab-*\n    User other\n" +
+				"Host lab-3    #Added by lazyssh\n    HostName 10.0.0.2\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config")
+			writeFile(t, path, tt.config)
+
+			repo := newTestRepo(t, path)
+			if err := repo.AddServer(domain.Server{Alias: tt.alias, Host: "10.0.0.2"}); err != nil {
+				t.Fatal(err)
+			}
+			if got := readFile(t, path); got != tt.want {
+				t.Errorf("unexpected config:\n--- got ---\n%s\n--- want ---\n%s", got, tt.want)
+			}
+		})
+	}
+}

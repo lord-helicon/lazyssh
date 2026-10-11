@@ -17,6 +17,7 @@ package ui
 import (
 	"fmt"
 	"reflect"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -544,6 +545,12 @@ func (sf *ServerForm) setupKeyboardShortcuts() {
 			}
 		}
 
+		// Ctrl+H: Previous tab (backup handler)
+		if isPrevTabKey(event, runtime.GOOS) {
+			sf.prevTab()
+			return nil
+		}
+
 		// Handle special keys
 		//nolint:exhaustive // We only handle specific keys and pass through others
 		switch event.Key() {
@@ -554,10 +561,6 @@ func (sf *ServerForm) setupKeyboardShortcuts() {
 		case tcell.KeyEscape:
 			// ESC: Cancel
 			sf.handleCancel()
-			return nil
-		case tcell.KeyCtrlH:
-			// Ctrl+H: Previous tab (backup handler)
-			sf.prevTab()
 			return nil
 		case tcell.KeyCtrlL:
 			// Ctrl+L: Next tab (backup handler)
@@ -589,14 +592,17 @@ func (sf *ServerForm) setupFormShortcuts(form *tview.Form) {
 			}
 		}
 
+		// Ctrl+H: Previous tab (backup handler)
+		if isPrevTabKey(event, runtime.GOOS) {
+			sf.prevTab()
+			return nil
+		}
+
 		// Handle special keys
 		//nolint:exhaustive // We only handle specific keys and pass through others
 		switch event.Key() {
 		case tcell.KeyEscape:
 			sf.handleCancel()
-			return nil
-		case tcell.KeyCtrlH:
-			sf.prevTab()
 			return nil
 		case tcell.KeyCtrlL:
 			sf.nextTab()
@@ -610,6 +616,17 @@ func (sf *ServerForm) setupFormShortcuts(form *tview.Form) {
 
 		return event
 	})
+}
+
+// isPrevTabKey reports whether event is Ctrl+H. tcell reports both the
+// Backspace key and Ctrl+H as KeyCtrlH (0x08). On Unix terminals Backspace
+// sends DEL (0x7F) instead, so 0x08 is always Ctrl+H. The Windows console
+// sends 0x08 for Backspace and only sets ModCtrl for a real Ctrl+H.
+func isPrevTabKey(event *tcell.EventKey, goos string) bool {
+	if event.Key() != tcell.KeyCtrlH {
+		return false
+	}
+	return goos != "windows" || event.Modifiers()&tcell.ModCtrl != 0
 }
 
 // createOptionsWithDefault creates dropdown options with default value indicated
