@@ -174,7 +174,10 @@ func (t *tui) handleSearchInput(query string) {
 	t.serverList.UpdateServers(filtered)
 	if len(filtered) == 0 {
 		t.details.ShowEmpty()
+		return
 	}
+	// A new query should select the best match, not keep the previous selection.
+	t.serverList.SetCurrentItem(0)
 }
 
 func (t *tui) isServerListFocused() bool {
