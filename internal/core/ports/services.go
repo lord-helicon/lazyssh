@@ -34,4 +34,7 @@ type ServerService interface {
 	Ping(server domain.Server) (bool, time.Duration, error)
 	InstallPublicKey(alias, pubKeyPath string) error
 	InstallPublicKeyContent(alias, key string) error
+	UploadFiles(alias, localPath, remotePath string, recursive bool) error
+	DownloadFiles(alias, remotePath, localPath string, recursive bool) error
+	OpenSFTP(alias string) error
 }

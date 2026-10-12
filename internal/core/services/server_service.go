@@ -442,3 +442,57 @@ func sshCopyIDArgs(alias, pubKeyPath string) []string {
 	}
 	return append(args, "-i", pubKeyPath, alias)
 }
+
+// UploadFiles copies localPath to alias:remotePath with scp. An empty
+// remotePath means the remote home directory.
+func (s *serverService) UploadFiles(alias, localPath, remotePath string, recursive bool) error {
+	return s.runTransfer("upload", alias, "scp", scpUploadArgs(alias, localPath, remotePath, recursive))
+}
+
+// DownloadFiles copies alias:remotePath to localPath with scp.
+func (s *serverService) DownloadFiles(alias, remotePath, localPath string, recursive bool) error {
+	return s.runTransfer("download", alias, "scp", scpDownloadArgs(alias, remotePath, localPath, recursive))
+}
+
+// OpenSFTP starts an interactive sftp session with alias.
+func (s *serverService) OpenSFTP(alias string) error {
+	return s.runTransfer("sftp", alias, "sftp", sftpArgs(alias))
+}
+
+func (s *serverService) runTransfer(kind, alias, name string, args []string) error {
+	s.logger.Infow(kind+" start", "alias", alias, "command", name, "args", args)
+	if err := s.runInteractive(name, args...); err != nil {
+		s.logger.Errorw(kind+" failed", "alias", alias, "error", err)
+		return err
+	}
+	s.logger.Infow(kind+" end", "alias", alias)
+	return nil
+}
+
+func scpUploadArgs(alias, localPath, remotePath string, recursive bool) []string {
+	return scpArgs(recursive, safeLocalPath(localPath), alias+":"+remotePath)
+}
+
+func scpDownloadArgs(alias, remotePath, localPath string, recursive bool) []string {
+	return scpArgs(recursive, alias+":"+remotePath, safeLocalPath(localPath))
+}
+
+func scpArgs(recursive bool, src, dst string) []string {
+	var args []string
+	if recursive {
+		args = append(args, "-r")
+	}
+	return append(args, src, dst)
+}
+
+func sftpArgs(alias string) []string {
+	return []string{alias}
+}
+
+// safeLocalPath keeps scp from reading a local path that starts with "-" as an option.
+func safeLocalPath(p string) string {
+	if strings.HasPrefix(p, "-") {
+		return "./" + p
+	}
+	return p
+}

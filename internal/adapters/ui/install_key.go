@@ -15,7 +15,6 @@
 package ui
 
 import (
-	"bufio"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -84,7 +83,9 @@ func (t *tui) showInstallKeyForm(server domain.Server) {
 	form.AddButton("Install", func() {
 		if selected < len(keys) {
 			key := keys[selected]
-			t.runKeyInstall(alias, func() error { return t.serverService.InstallPublicKey(alias, key) })
+			_ = t.runSuspended("Key installed on "+alias, "Key install on "+alias+" failed", func() error {
+				return t.serverService.InstallPublicKey(alias, key)
+			})
 			return
 		}
 		if err := validatePublicKey(pasted); err != nil {
@@ -92,7 +93,9 @@ func (t *tui) showInstallKeyForm(server domain.Server) {
 			return
 		}
 		key := pasted
-		t.runKeyInstall(alias, func() error { return t.serverService.InstallPublicKeyContent(alias, key) })
+		_ = t.runSuspended("Key installed on "+alias, "Key install on "+alias+" failed", func() error {
+			return t.serverService.InstallPublicKeyContent(alias, key)
+		})
 	})
 	form.AddButton("Cancel", func() { t.returnToMain() })
 	form.SetCancelFunc(func() { t.returnToMain() })
@@ -106,24 +109,6 @@ func (t *tui) showInstallKeyForm(server domain.Server) {
 
 	t.app.SetRoot(dialog, true)
 	t.app.SetFocus(form)
-}
-
-// runKeyInstall runs install in the suspended terminal. On failure the output
-// stays on screen until the user presses Enter, so the error can be read.
-func (t *tui) runKeyInstall(alias string, install func() error) {
-	var err error
-	t.app.Suspend(func() {
-		if err = install(); err != nil {
-			fmt.Printf("\nInstalling the key on %s failed: %v\nPress Enter to return to lazyssh...", alias, err)
-			_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
-		}
-	})
-	t.returnToMain()
-	if err != nil {
-		t.showStatusTempColor("Key install failed: "+err.Error(), "#FF6B6B")
-		return
-	}
-	t.showStatusTemp("Key installed on " + alias)
 }
 
 // listPublicKeys returns the .pub files in dir, sorted by name.
