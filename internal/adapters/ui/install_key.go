@@ -44,7 +44,13 @@ func (t *tui) handleInstallKey() {
 // showInstallKeyForm lets the user pick a public key from ~/.ssh or paste one,
 // then installs it on the server with ssh-copy-id.
 func (t *tui) showInstallKeyForm(server domain.Server) {
-	home, _ := os.UserHomeDir()
+	// Without a home directory, ~/.ssh would resolve relative to the working
+	// directory and a generated key would not match its IdentityFile entry.
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.showStatusTempColor("Cannot find your home directory: "+err.Error(), "#FF6B6B")
+		return
+	}
 	keys := listPublicKeys(filepath.Join(home, ".ssh"))
 	options := make([]string, 0, len(keys)+2)
 	for _, key := range keys {

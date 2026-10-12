@@ -132,3 +132,15 @@ func TestInstallKeyFormFocusAfterChoosingKey(t *testing.T) {
 		})
 	}
 }
+
+func TestInstallKeyFormNeedsHomeDir(t *testing.T) {
+	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "")
+	if _, err := os.UserHomeDir(); err == nil {
+		t.Skip("home directory still resolvable on this platform")
+	}
+	d := newFormDriver(func(t *tui) { t.showInstallKeyForm(domain.Server{Alias: "web1"}) })
+	if focus := d.app.GetFocus(); focus != nil {
+		t.Errorf("dialog opened without a home directory (focus %T)", focus)
+	}
+}
