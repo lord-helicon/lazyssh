@@ -53,6 +53,7 @@ With lazyssh, you can quickly navigate, connect to, and manage any server define
 - 📝 Smart key selection with support for multiple keys.
 - 📤 Press `K` to install a public key on the selected server (via `ssh-copy-id`): pick one of your `~/.ssh/*.pub` keys (the server's own key is preselected) or paste someone else's.
 - 🆕 The same `K` dialog can also generate a new keypair with `ssh-keygen` (ed25519, RSA 4096 or ECDSA), install it on the server, and set it as the server's `IdentityFile`.
+- 📂 Key browser (`Ctrl+O` in the server form): pick a private key from a folder tree with its fingerprint. Picking a key also sets `IdentitiesOnly yes`, so the host uses only that key instead of trying every key in your agent.
 
 ---
 
@@ -204,6 +205,7 @@ make run
 | Ctrl+H | Previous tab         |
 | Ctrl+L | Next tab             |
 | Ctrl+S | Save                 |
+| Ctrl+O | Browse for an SSH key |
 | Esc    | Cancel               |
 
 Tip: The hint bar at the top of the list shows the most useful shortcuts.
